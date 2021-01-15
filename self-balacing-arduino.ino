@@ -59,6 +59,7 @@ THE SOFTWARE.
 // specific I2C addresses may be passed as a parameter here
 // AD0 low = 0x68 (default for SparkFun breakout and InvenSense evaluation board)
 // AD0 high = 0x69
+
 MPU6050 mpu;
 //MPU6050 mpu(0x69); // <-- use for AD0 high
 
@@ -153,10 +154,12 @@ double movingAngleOffset = 0.1;
 double input, output;
 
 //PID coefs
-double Kp = 150;
+double Kp = 40;
 double Kd = 0;
-double Ki = 0;
-
+double Ki = 0.6;
+double stable_point = 178.15;
+double err_sum = 0;
+double last_err = 0;
 
 bool WARMING;
 
@@ -199,9 +202,7 @@ void setup() {
     // initialize device
     Serial.println(F("Initializing I2C devices..."));
     mpu.initialize();
-    //ZHEN:I don't know how but it works
-    //mpu.setFullScaleGyroRange(3);
-    //mpu.setFullScaleAccelRange(3);
+
     pinMode(INTERRUPT_PIN, INPUT);
 
     // verify connection
@@ -271,11 +272,12 @@ void setup() {
 void loop() {
     // if programming failed, don't try to do anything
     if (!dmpReady) return;
-
-                if(!WARMING && (input<150 || input > 210)){
-                  motors.set(0);
-                  return;
-                }
+     
+    //DEAD ANGLE
+    if(!WARMING && (input < 150 || input > 200)){
+      motors.set(0);
+      return;
+    }
     bool _done = false;
     // wait for MPU interrupt or extra packet(s) available
     while (!mpuInterrupt && fifoCount < packetSize) {
@@ -286,18 +288,35 @@ void loop() {
         if (WARMING){
           if (input > 170 && input < 180){
             WARMING = false;
-              //pid.Start(input,  // input
-              //output,                      // current output
-              //174 );                   // setpoint
-              //pid.SetOutputLimits(-254, 254);
-
           }
           else{
             continue;
           }
         }
         if (!_done){
-        //output = pid.Run(input);
+        double current_err = stable_point - input;
+        output = (current_err) * Kp + err_sum* Ki + (current_err-last_err) * Kd;
+        err_sum = err_sum+ current_err;
+        
+        
+        //Serial.print("; GYRO = "); Serial.print (gx);
+
+        Serial.print("; P = ");
+        Serial.print(current_err);
+        Serial.print("; I = ");
+        Serial.print(err_sum);
+        Serial.print("; D = ");
+        Serial.print(current_err-last_err);
+        Serial.print("; OUTPUT= "); Serial.println(output);
+
+
+        last_err = current_err;
+        if (output > 254){
+          output = 254;
+        }
+        if (output < -255){
+          output = -254;
+        }
         motors.set(-output);
         _done = true;
         }
@@ -423,18 +442,19 @@ void loop() {
         #endif
 
         mpu.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
-        Serial.print(gx); Serial.println("\t");
-        Serial.print(gy); Serial.println("\t");
+        //Serial.print(gx); Serial.println("\t");
 
         // blink LED to indicate activity
         blinkState = !blinkState;
         digitalWrite(LED_PIN, blinkState);
+                    mpu.dmpGetQuaternion(&q, fifoBuffer);
+            mpu.dmpGetGravity(&gravity, &q);
+            mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
                 input = ypr[2] * 180/M_PI;
                 if (input < 0){
                   input = 180 + input + 180;
                 }
-                //Serial.println(input);
-                //Serial.println(output);
+                Serial.print("PITCH= "); Serial.println(input);
 
 
     }
