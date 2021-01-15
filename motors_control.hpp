@@ -1,9 +1,11 @@
+#include "Arduino.h"
 #ifndef _MOTORS_CONTROL_HPP_
 #define _MOTORS_CONTROL_HPP_
 
 class Motors{
 public:
-    enum MotorsStatus{ STOP, FORWARD, BACKWARD }
+    enum MotorsStatus{ STOP, FORWARD, BACKWARD };
+    enum MotorDirection {POSITIVE, NEGATIVE};
     //Empty motors
     Motors():_PIN_PWM1(5),_PIN_PWM2(6),_PIN_Ctrl2(4),_PIN_Ctrl1(7){
 
@@ -14,6 +16,9 @@ public:
             analogWrite(_PIN_PWM2, 0);
 
             _status = STOP;
+            _m1 = MotorDirection::POSITIVE;
+            _m2 = MotorDirection::POSITIVE;
+
         };
     
     inline void set(int power){
@@ -30,14 +35,23 @@ public:
         }
     };
 
+    inline void reverse_m2_direction(){
+      if(_m2 == MotorDirection::POSITIVE){
+        _m2 = MotorDirection::NEGATIVE;
+      }
+      if(_m2 == MotorDirection::NEGATIVE){
+        _m2 = MotorDirection::POSITIVE;
+      }
+    };
     inline void set_direction(MotorsStatus s){
-        if (s == MotorsStatus::FORWARD){
-            digitalWrite(_PIN_PWM1,HIGH);
-            digitalWrite(_PIN_PWM2,HIGH);
+        if (s == MotorsStatus::FORWARD && _status != MotorsStatus::FORWARD){
+          //TODO, should be both HIGH or LOW, to modify this class
+            digitalWrite(_PIN_Ctrl1,LOW);
+            digitalWrite(_PIN_Ctrl2,HIGH);
         }
-        if (s == MotorsStatus::BACKWARD){
-            digitalWrite(_PIN_PWM1,LOW);
-            digitalWrite(_PIN_PWM2,LOW);
+        if (s == MotorsStatus::BACKWARD && _status != MotorsStatus::BACKWARD){
+            digitalWrite(_PIN_Ctrl1,HIGH);
+            digitalWrite(_PIN_Ctrl2,LOW);
         }
     };
 
@@ -52,6 +66,8 @@ private:
     int _PIN_PWM2;
     int _PIN_Ctrl1;
     int _PIN_Ctrl2;
+    MotorDirection _m1;
+    MotorDirection _m2;
     MotorsStatus _status;
 };
 
