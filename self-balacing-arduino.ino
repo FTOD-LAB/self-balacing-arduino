@@ -147,17 +147,13 @@ int16_t gx, gy, gz;
 // packet structure for InvenSense teapot demo
 uint8_t teapotPacket[14] = { '$', 0x02, 0,0, 0,0, 0,0, 0,0, 0x00, 0x00, '\r', '\n' };
 
-//PID
-double originalSetpoint = 173;
-double setpoint = originalSetpoint;
-double movingAngleOffset = 0.1;
 double input, output;
 
 //PID coefs
-double Kp = 40;
-double Kd = 0;
-double Ki = 0.6;
-double stable_point = 178.15;
+const double Kp = 50;
+const double Kd = 400;
+const double Ki = 8;
+const double stable_point = 181.0;
 double err_sum = 0;
 double last_err = 0;
 
@@ -274,7 +270,7 @@ void loop() {
     if (!dmpReady) return;
      
     //DEAD ANGLE
-    if(!WARMING && (input < 150 || input > 200)){
+    if(!WARMING && (input < stable_point-15 || input > stable_point+10)){
       motors.set(0);
       return;
     }
@@ -286,7 +282,7 @@ void loop() {
           fifoCount = mpu.getFIFOCount();
         }  
         if (WARMING){
-          if (input > 170 && input < 180){
+          if (input > stable_point-1 && input < stable_point+1){
             WARMING = false;
           }
           else{
@@ -297,6 +293,8 @@ void loop() {
         double current_err = stable_point - input;
         output = (current_err) * Kp + err_sum* Ki + (current_err-last_err) * Kd;
         err_sum = err_sum+ current_err;
+        //if (last_err < 0 && current_err > 0 || last_err > 0 && current_err < 0)
+        //  err_sum = 0;
         
         
         //Serial.print("; GYRO = "); Serial.print (gx);
@@ -307,16 +305,17 @@ void loop() {
         Serial.print(err_sum);
         Serial.print("; D = ");
         Serial.print(current_err-last_err);
-        Serial.print("; OUTPUT= "); Serial.println(output);
+
 
 
         last_err = current_err;
-        if (output > 254){
-          output = 254;
+        if (output > 255){
+          output = 255;
         }
         if (output < -255){
-          output = -254;
+          output = -255;
         }
+        Serial.print("; OUTPUT= "); Serial.println(output);
         motors.set(-output);
         _done = true;
         }
@@ -441,7 +440,7 @@ void loop() {
             teapotPacket[11]++; // packetCount, loops at 0xFF on purpose
         #endif
 
-        mpu.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
+        //mpu.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
         //Serial.print(gx); Serial.println("\t");
 
         // blink LED to indicate activity
@@ -454,7 +453,7 @@ void loop() {
                 if (input < 0){
                   input = 180 + input + 180;
                 }
-                Serial.print("PITCH= "); Serial.println(input);
+                //Serial.print("PITCH= "); Serial.println(input);
 
 
     }
